@@ -25,13 +25,17 @@ import io.mine.protocol.data.DataProtocols;
 public class SyncClient implements Closeable {
 
     private InetSocketAddress _server;
-    private Socket _socket;
-    private AtomicBoolean _connected;
+    private DataProtocol _dataProtocol;
 
-    public SyncClient(InetSocketAddress server) {
+    private AtomicBoolean _connected;
+    private Socket _socket;
+
+    public SyncClient(InetSocketAddress server, DataProtocol dataProtocol) {
         Objects.requireNonNull(server, "server is null");
+        Objects.requireNonNull(dataProtocol, "dataProtocol is null");
 
         _server = server;
+        _dataProtocol = dataProtocol;
         _connected = new AtomicBoolean();
     }
 
@@ -50,8 +54,8 @@ public class SyncClient implements Closeable {
 
     public ServerResponse send(ServerRequest request) throws IOException {
         OutputStream os = _socket.getOutputStream();
-        os.write(DataProtocols.V0.getVersion());
-        DataProtocols.V0.getTransferCodec().encode(os, request);
+        os.write(_dataProtocol.getVersion());
+        _dataProtocol.getTransferCodec().encode(os, request);
         os.flush();
 
         InputStream is = _socket.getInputStream();

@@ -42,7 +42,8 @@ public class DefaultLengthCodec implements LengthCodec {
         if (bytes.length - position < getLengthByteCount())
             throw new InsufficientDataException(getLengthByteCount(), bytes.length - position);
 
-        return (bytes[position] << 24) + (bytes[position + 1] << 16) + (bytes[position + 2] << 8) + bytes[position + 3];
+        return (bytes[position] << 24 & 0XFF000000) + (bytes[position + 1] << 16 & 0X00FF0000)
+                + (bytes[position + 2] << 8 & 0X0000FF00) + (bytes[position + 3] & 0X000000FF);
     }
 
     protected byte[] newBytes() {

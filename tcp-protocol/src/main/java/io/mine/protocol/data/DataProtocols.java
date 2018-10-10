@@ -27,7 +27,7 @@ public class DataProtocols {
     };
 
     public static final DataProtocol V1 = new TrunkedEncodingProtocol((byte) 1,
-            new JacksonJsonCodec(new ObjectMapper()), new DefaultLengthCodec(), 32 * 1024) {
+            new JacksonJsonCodec(new ObjectMapper()), new DefaultLengthCodec(), 128) {
         @Override
         public String toString() {
             return "JacksonJsonTrunkedEncoding";

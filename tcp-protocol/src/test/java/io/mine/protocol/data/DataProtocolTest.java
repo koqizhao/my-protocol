@@ -27,7 +27,12 @@ public class DataProtocolTest {
                 new Object[] { DataProtocols.V0, true }, new Object[] { DataProtocols.V0, false },
                 new Object[] { DataProtocols.V0, 0 }, new Object[] { DataProtocols.V0, 99.1F },
                 new Object[] { DataProtocols.V0, -100.1 }, new Object[] { DataProtocols.V0, (byte) 33 },
-                new Object[] { DataProtocols.V0, null });
+                new Object[] { DataProtocols.V0, null }, new Object[] { DataProtocols.V1, 10 },
+                new Object[] { DataProtocols.V1, "ok" }, new Object[] { DataProtocols.V1, true },
+                new Object[] { DataProtocols.V1, false }, new Object[] { DataProtocols.V1, 0 },
+                new Object[] { DataProtocols.V1, 99.1F }, new Object[] { DataProtocols.V1, -100.1 },
+                new Object[] { DataProtocols.V1, (byte) 33 }, new Object[] { DataProtocols.V1, null },
+                new Object[] { DataProtocols.V1, Util.multiply("Hello, World!", 128) });
     }
 
     @Parameter(0)
