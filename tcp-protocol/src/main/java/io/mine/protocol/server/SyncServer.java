@@ -18,6 +18,7 @@ import org.mydotey.objectpool.threadpool.autoscale.AutoScaleThreadPoolConfig;
 import io.mine.protocol.api.ServerRequest;
 import io.mine.protocol.api.ServerResponse;
 import io.mine.protocol.data.DataProtocol;
+import io.mine.protocol.data.DataProtocolException;
 import io.mine.protocol.data.DataProtocols;
 
 /**
@@ -56,6 +57,10 @@ public class SyncServer implements Closeable {
                 .setScaleFactor(10).build();
         _workerPool = ThreadPools.newThreadPool(threadPoolConfig);
 
+        serve();
+    }
+
+    protected void serve() throws IOException {
         while (_started.get()) {
             Socket socket;
             try {
@@ -90,20 +95,18 @@ public class SyncServer implements Closeable {
                     break;
                 }
 
-                DataProtocol dataProtocol = DataProtocols.All.get(version);
-                if (dataProtocol == null) {
-                    System.out.println(
+                DataProtocol dataProtocol = DataProtocols.ALL.get(version);
+                if (dataProtocol == null)
+                    throw new DataProtocolException(
                             "Unsupported protocol version: " + version + " from " + socket.getRemoteSocketAddress());
-                    break;
-                }
 
-                ServerRequest request = dataProtocol.read(is, ServerRequest.class);
+                ServerRequest request = dataProtocol.getTransferCodec().decode(is, ServerRequest.class);
                 ServerResponse response = new ServerResponse();
                 response.setTime(System.currentTimeMillis());
                 response.setFeedback(String.format("Nice! %s, your time: %s, my time: %s", request.getName(),
                         request.getTime(), response.getTime()));
                 os.write(version);
-                dataProtocol.write(os, response);
+                dataProtocol.getTransferCodec().encode(os, response);
                 os.flush();
             }
         } catch (Exception e) {

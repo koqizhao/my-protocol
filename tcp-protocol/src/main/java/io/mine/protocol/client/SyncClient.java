@@ -11,11 +11,10 @@ import java.net.UnknownHostException;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import javax.xml.ws.ProtocolException;
-
 import io.mine.protocol.api.ServerRequest;
 import io.mine.protocol.api.ServerResponse;
 import io.mine.protocol.data.DataProtocol;
+import io.mine.protocol.data.DataProtocolException;
 import io.mine.protocol.data.DataProtocols;
 
 /**
@@ -52,7 +51,7 @@ public class SyncClient implements Closeable {
     public ServerResponse send(ServerRequest request) throws IOException {
         OutputStream os = _socket.getOutputStream();
         os.write(DataProtocols.V0.getVersion());
-        DataProtocols.V0.write(os, request);
+        DataProtocols.V0.getTransferCodec().encode(os, request);
         os.flush();
 
         InputStream is = _socket.getInputStream();
@@ -60,11 +59,11 @@ public class SyncClient implements Closeable {
         if (version == -1)
             throw new EOFException();
 
-        DataProtocol protocol = DataProtocols.All.get(version);
+        DataProtocol protocol = DataProtocols.ALL.get(version);
         if (protocol == null)
-            throw new ProtocolException(
+            throw new DataProtocolException(
                     "Unsupported protocol version: " + version + " from " + _socket.getRemoteSocketAddress());
-        return protocol.read(is, ServerResponse.class);
+        return protocol.getTransferCodec().decode(is, ServerResponse.class);
     }
 
     @Override

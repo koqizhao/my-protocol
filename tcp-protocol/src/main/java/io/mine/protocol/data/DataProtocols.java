@@ -2,6 +2,11 @@ package io.mine.protocol.data;
 
 import org.agrona.collections.Int2ObjectHashMap;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.mine.protocol.codec.DefaultLengthCodec;
+import io.mine.protocol.codec.JacksonJsonCodec;
+
 /**
  * @author koqizhao
  *
@@ -13,17 +18,27 @@ public class DataProtocols {
 
     }
 
-    public static final DataProtocol V0 = new FixedEncodingProtocol((byte) 0, JacksonJsonBytesConverter.DEFAULT) {
+    public static final DataProtocol V0 = new FixedEncodingProtocol((byte) 0, new JacksonJsonCodec(new ObjectMapper()),
+            new DefaultLengthCodec()) {
         @Override
         public String toString() {
             return "JacksonJsonFixedEncoding";
         }
     };
 
-    public static final Int2ObjectHashMap<DataProtocol> All = new Int2ObjectHashMap<>();
+    public static final DataProtocol V1 = new TrunkedEncodingProtocol((byte) 1,
+            new JacksonJsonCodec(new ObjectMapper()), new DefaultLengthCodec(), 32 * 1024) {
+        @Override
+        public String toString() {
+            return "JacksonJsonTrunkedEncoding";
+        }
+    };
+
+    public static final Int2ObjectHashMap<DataProtocol> ALL = new Int2ObjectHashMap<>();
 
     static {
-        All.put(V0.getVersion(), V0);
+        ALL.put(V0.getVersion(), V0);
+        ALL.put(V1.getVersion(), V1);
     }
 
 }

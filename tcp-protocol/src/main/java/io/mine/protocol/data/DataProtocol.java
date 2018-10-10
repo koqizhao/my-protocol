@@ -1,7 +1,8 @@
 package io.mine.protocol.data;
 
-import java.io.InputStream;
-import java.io.OutputStream;
+import io.mine.protocol.codec.DataCodec;
+import io.mine.protocol.codec.LengthCodec;
+import io.mine.protocol.codec.TransferCodec;
 
 /**
  * @author koqizhao
@@ -12,8 +13,10 @@ public interface DataProtocol {
 
     byte getVersion();
 
-    void write(OutputStream os, Object data);
+    DataCodec getDataCodec();
 
-    <T> T read(InputStream is, Class<T> clazz);
+    LengthCodec getLengthCodec();
+
+    TransferCodec getTransferCodec();
 
 }

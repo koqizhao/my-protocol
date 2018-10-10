@@ -39,9 +39,9 @@ public class DataProtocolTest {
     @Test
     public void encodeTest() throws IOException {
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
-            _protocol.write(os, _data);
+            _protocol.getTransferCodec().encode(os, _data);
             try (ByteArrayInputStream is = new ByteArrayInputStream(os.toByteArray())) {
-                Object data = _protocol.read(is, _data == null ? null : _data.getClass());
+                Object data = _protocol.getTransferCodec().decode(is, _data == null ? null : _data.getClass());
                 Assert.assertEquals(_data, data);
             }
         }
