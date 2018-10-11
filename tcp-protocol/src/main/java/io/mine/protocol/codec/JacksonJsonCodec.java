@@ -31,14 +31,14 @@ public class JacksonJsonCodec implements DataCodec {
 
     @Override
     public <T> T decode(byte[] bytes, Class<T> clazz) {
-        return decode(bytes, 0, clazz);
+        return decode(bytes, 0, bytes.length, clazz);
     }
 
     @Override
-    public <T> T decode(byte[] bytes, int position, Class<T> clazz) {
+    public <T> T decode(byte[] bytes, int position, int length, Class<T> clazz) {
         Objects.requireNonNull(bytes, "bytes is null");
         try {
-            return _objectMapper.readValue(bytes, position, bytes.length, clazz);
+            return _objectMapper.readValue(bytes, position, length, clazz);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

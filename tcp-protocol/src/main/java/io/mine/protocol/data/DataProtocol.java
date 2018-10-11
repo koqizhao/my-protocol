@@ -1,6 +1,5 @@
 package io.mine.protocol.data;
 
-import io.mine.protocol.codec.DataCodec;
 import io.mine.protocol.codec.LengthCodec;
 import io.mine.protocol.codec.TransferCodec;
 
@@ -12,8 +11,6 @@ import io.mine.protocol.codec.TransferCodec;
 public interface DataProtocol {
 
     byte getVersion();
-
-    DataCodec getDataCodec();
 
     LengthCodec getLengthCodec();
 

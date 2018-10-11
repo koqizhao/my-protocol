@@ -15,12 +15,16 @@ public abstract class AbstractTransferCodec implements TransferCodec {
     private DataCodec _dataCodec;
     private LengthCodec _lengthCodec;
 
+    protected final byte[] FIN_LENGTH_BYTES;
+
     public AbstractTransferCodec(DataCodec dataCodec, LengthCodec lengthCodec) {
         Objects.requireNonNull(dataCodec, "dataCodec is null");
         Objects.requireNonNull(lengthCodec, "lengthCodec is null");
 
         _dataCodec = dataCodec;
         _lengthCodec = lengthCodec;
+
+        FIN_LENGTH_BYTES = getLengthCodec().encode(FIN_LENGTH);
     }
 
     protected DataCodec getDataCodec() {

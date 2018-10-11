@@ -1,11 +1,11 @@
-package io.mine.protocol.api;
+package io.mine.protocol.api.sample;
 
 /**
  * @author koqizhao
  *
  * Oct 9, 2018
  */
-public class ServerResponse {
+public class SampleResponse {
 
     private String feedback;
     private long time;

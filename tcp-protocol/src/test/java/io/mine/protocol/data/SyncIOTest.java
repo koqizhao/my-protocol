@@ -17,8 +17,9 @@ import org.mydotey.objectpool.facade.ThreadPools;
 import org.mydotey.objectpool.threadpool.ThreadPool;
 import org.mydotey.objectpool.threadpool.ThreadPoolConfig;
 
-import io.mine.protocol.api.ServerRequest;
-import io.mine.protocol.api.ServerResponse;
+import io.mine.protocol.api.sample.SampleRequest;
+import io.mine.protocol.api.sample.SampleResponse;
+import io.mine.protocol.api.sample.SampleService;
 import io.mine.protocol.client.SyncClient;
 import io.mine.protocol.server.SyncServer;
 
@@ -48,7 +49,8 @@ public class SyncIOTest {
     public String name;
 
     private ThreadPool _serverThreadPool;
-    private SyncServer _server;
+    private SyncServer<SampleRequest, SampleResponse> _server;
+    private SyncClient<SampleRequest, SampleResponse> _client;
 
     @Before
     public void setUp() throws IOException, InterruptedException {
@@ -56,7 +58,7 @@ public class SyncIOTest {
                 .build();
         _serverThreadPool = ThreadPools.newThreadPool(threadPoolConfig);
         _serverThreadPool.submit(() -> {
-            _server = new SyncServer(port);
+            _server = new SyncServer<>(new InetSocketAddress(port), new SampleService());
             try {
                 _server.start();
             } catch (IOException e) {
@@ -65,30 +67,36 @@ public class SyncIOTest {
         });
 
         Thread.sleep(1 * 1000);
+
+        _client = new SyncClient<>(SampleRequest.class, SampleResponse.class, new InetSocketAddress(port),
+                dataProtocol);
     }
 
     @After
-    public void tearDown() throws IOException {
+    public void tearDown() throws Exception {
         if (_serverThreadPool != null)
             _serverThreadPool.close();
 
-        if (_server != null)
+        if (_server != null) {
             _server.close();
+        }
+
+        if (_client != null)
+            _client.close();
+
+        Thread.sleep(1 * 1000);
     }
 
     @Test
     public void requestResponseTest() throws IOException, InterruptedException {
-        try (SyncClient client = new SyncClient(new InetSocketAddress(port), dataProtocol)) {
-            client.connect();
-            ServerRequest request = new ServerRequest();
-            request.setName(name);
-            request.setTime(System.currentTimeMillis());
-            System.out.println("request: " + request);
-            ServerResponse response = client.send(request);
-            Assert.assertNotNull(response);
-            Assert.assertTrue(response.getTime() >= request.getTime());
-            System.out.println("response: " + response);
-        }
+        SampleRequest request = new SampleRequest();
+        request.setName(name);
+        request.setTime(System.currentTimeMillis());
+        System.out.println("request: " + request);
+        SampleResponse response = _client.invoke(request);
+        Assert.assertNotNull(response);
+        Assert.assertTrue(response.getTime() >= request.getTime());
+        System.out.println("response: " + response);
     }
 
     @Test

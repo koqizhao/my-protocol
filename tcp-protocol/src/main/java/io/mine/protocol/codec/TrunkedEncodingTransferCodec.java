@@ -18,7 +18,6 @@ public class TrunkedEncodingTransferCodec extends AbstractTransferCodec {
 
     private int _trunkSize;
 
-    protected final byte[] EMPTY_LENGTH_BYTES;
     protected final byte[] TRUNK_LENGTH_BYTES;
 
     public TrunkedEncodingTransferCodec(int trunkSize, DataCodec dataCodec, LengthCodec lengthCodec) {
@@ -28,16 +27,16 @@ public class TrunkedEncodingTransferCodec extends AbstractTransferCodec {
             throw new IllegalArgumentException("trunkSize <= 0");
         _trunkSize = trunkSize;
 
-        EMPTY_LENGTH_BYTES = getLengthCodec().encode(0);
         TRUNK_LENGTH_BYTES = getLengthCodec().encode(_trunkSize);
     }
 
     @Override
     public byte[] encode(Object data) {
-        if (data == null)
-            return EMPTY_LENGTH_BYTES;
+        byte[] dataBytes = data == null ? null : getDataCodec().encode(data);
+        int length = dataBytes == null ? FIN_LENGTH : dataBytes.length;
+        if (length == FIN_LENGTH)
+            return FIN_LENGTH_BYTES;
 
-        byte[] dataBytes = getDataCodec().encode(data);
         int trunkCount = dataBytes.length / _trunkSize;
         int remaining = dataBytes.length % _trunkSize;
         boolean hasInsufficientTrunk = remaining != 0;
@@ -60,7 +59,7 @@ public class TrunkedEncodingTransferCodec extends AbstractTransferCodec {
             bytesOffset += trunkSize;
         }
 
-        System.arraycopy(EMPTY_LENGTH_BYTES, 0, bytes, bytesOffset, EMPTY_LENGTH_BYTES.length);
+        System.arraycopy(FIN_LENGTH_BYTES, 0, bytes, bytesOffset, FIN_LENGTH_BYTES.length);
 
         return bytes;
     }
@@ -78,7 +77,7 @@ public class TrunkedEncodingTransferCodec extends AbstractTransferCodec {
             throw new ArrayIndexOutOfBoundsException(position);
 
         int length = getLengthCodec().decode(bytes, position);
-        if (length == 0)
+        if (length == FIN_LENGTH)
             return null;
 
         int dataTotalSize = 0;
@@ -110,16 +109,18 @@ public class TrunkedEncodingTransferCodec extends AbstractTransferCodec {
 
     @Override
     public void encode(OutputStream os, Object data) throws IOException {
-        if (data == null) {
-            os.write(EMPTY_LENGTH_BYTES);
+        byte[] dataBytes = data == null ? null : getDataCodec().encode(data);
+        int length = dataBytes == null ? FIN_LENGTH : dataBytes.length;
+        if (length == FIN_LENGTH) {
+            os.write(FIN_LENGTH_BYTES);
             os.flush();
+            return;
         }
 
-        byte[] dataBytes = getDataCodec().encode(data);
         byte[] lengthBytes = TRUNK_LENGTH_BYTES;
         for (int dataBytesOffset = 0, remaining = dataBytes.length, trunkSize = _trunkSize; remaining >= 0;) {
             if (remaining == 0) {
-                os.write(EMPTY_LENGTH_BYTES);
+                os.write(FIN_LENGTH_BYTES);
                 os.flush();
                 break;
             }
@@ -142,7 +143,7 @@ public class TrunkedEncodingTransferCodec extends AbstractTransferCodec {
     public <T> T decode(InputStream is, Class<T> clazz) throws IOException {
         byte[] lengthBytes = readBytes(is, getLengthCodec().getLengthByteCount());
         int length = getLengthCodec().decode(lengthBytes);
-        if (length == 0)
+        if (length == FIN_LENGTH)
             return null;
 
         List<byte[]> trunks = new ArrayList<>();

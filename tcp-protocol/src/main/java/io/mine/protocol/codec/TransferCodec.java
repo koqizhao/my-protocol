@@ -11,6 +11,8 @@ import java.io.OutputStream;
  */
 public interface TransferCodec {
 
+    int FIN_LENGTH = 0;
+
     byte[] encode(Object data);
 
     <T> T decode(byte[] bytes, Class<T> clazz);

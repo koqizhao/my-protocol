@@ -11,6 +11,6 @@ public interface DataCodec {
 
     <T> T decode(byte[] bytes, Class<T> clazz);
 
-    <T> T decode(byte[] bytes, int position, Class<T> clazz);
+    <T> T decode(byte[] bytes, int position, int length, Class<T> clazz);
 
 }

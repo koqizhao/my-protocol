@@ -18,14 +18,16 @@ public class FixedEncodingTransferCodec extends AbstractTransferCodec {
 
     @Override
     public byte[] encode(Object data) {
-        if (data == null)
-            return getLengthCodec().encode(0);
+        byte[] dataBytes = data == null ? null : getDataCodec().encode(data);
+        int length = dataBytes == null ? FIN_LENGTH : dataBytes.length;
+        if (length == FIN_LENGTH)
+            return FIN_LENGTH_BYTES;
 
-        byte[] dataBytes = getDataCodec().encode(data);
         byte[] lengthBytes = getLengthCodec().encode(dataBytes.length);
-        byte[] bytes = newBytes(dataBytes.length + lengthBytes.length);
+        byte[] bytes = newBytes(dataBytes.length + getLengthCodec().getLengthByteCount() * 2);
         System.arraycopy(lengthBytes, 0, bytes, 0, lengthBytes.length);
         System.arraycopy(dataBytes, 0, bytes, lengthBytes.length, dataBytes.length);
+        System.arraycopy(FIN_LENGTH_BYTES, 0, bytes, lengthBytes.length + dataBytes.length, FIN_LENGTH_BYTES.length);
         return bytes;
     }
 
@@ -42,36 +44,41 @@ public class FixedEncodingTransferCodec extends AbstractTransferCodec {
             throw new ArrayIndexOutOfBoundsException(position);
 
         int length = getLengthCodec().decode(bytes, position);
-        if (length == 0)
+        if (length == FIN_LENGTH)
             return null;
 
         position += getLengthCodec().getLengthByteCount();
-        int remainingLength = bytes.length - position;
-        if (remainingLength < length)
+        int remainingLength = length - position;
+        if (remainingLength < length + getLengthCodec().getLengthByteCount())
             throw new InsufficientDataException(length, remainingLength);
 
-        return getDataCodec().decode(bytes, position, clazz);
+        return getDataCodec().decode(bytes, position, length, clazz);
     }
 
     @Override
     public void encode(OutputStream os, Object data) throws IOException {
         byte[] bytes = data == null ? null : getDataCodec().encode(data);
-        int length = bytes == null ? 0 : bytes.length;
+        int length = bytes == null ? FIN_LENGTH : bytes.length;
+        if (length == FIN_LENGTH) {
+            os.write(FIN_LENGTH_BYTES);
+            return;
+        }
+
         byte[] lengthBytes = getLengthCodec().encode(length);
         os.write(lengthBytes);
-        if (length != 0)
-            os.write(bytes);
+        os.write(bytes);
+        os.write(FIN_LENGTH_BYTES);
     }
 
     @Override
     public <T> T decode(InputStream is, Class<T> clazz) throws IOException {
         byte[] lengthBytes = readBytes(is, getLengthCodec().getLengthByteCount());
         int length = getLengthCodec().decode(lengthBytes);
-        if (length == 0)
+        if (length == FIN_LENGTH)
             return null;
 
-        byte[] bytes = readBytes(is, length);
-        return getDataCodec().decode(bytes, clazz);
+        byte[] bytes = readBytes(is, length + getLengthCodec().getLengthByteCount());
+        return getDataCodec().decode(bytes, 0, length, clazz);
     }
 
 }

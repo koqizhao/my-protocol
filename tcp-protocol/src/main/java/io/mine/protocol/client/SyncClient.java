@@ -1,6 +1,5 @@
 package io.mine.protocol.client;
 
-import java.io.Closeable;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -8,11 +7,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import io.mine.protocol.api.ServerRequest;
-import io.mine.protocol.api.ServerResponse;
 import io.mine.protocol.data.DataProtocol;
 import io.mine.protocol.data.DataProtocolException;
 import io.mine.protocol.data.DataProtocols;
@@ -22,63 +17,54 @@ import io.mine.protocol.data.DataProtocols;
  *
  * Oct 9, 2018
  */
-public class SyncClient implements Closeable {
+public class SyncClient<Req, Res> extends AbstractServiceClient<Req, Res> {
 
-    private InetSocketAddress _server;
-    private DataProtocol _dataProtocol;
-
-    private AtomicBoolean _connected;
     private Socket _socket;
 
-    public SyncClient(InetSocketAddress server, DataProtocol dataProtocol) {
-        Objects.requireNonNull(server, "server is null");
-        Objects.requireNonNull(dataProtocol, "dataProtocol is null");
+    public SyncClient(Class<Req> requestType, Class<Res> responseType, InetSocketAddress serverAddress,
+            DataProtocol dataProtocol) throws UnknownHostException, IOException {
+        super(requestType, responseType, serverAddress, dataProtocol);
 
-        _server = server;
-        _dataProtocol = dataProtocol;
-        _connected = new AtomicBoolean();
+        connect();
     }
 
-    public void connect() throws UnknownHostException, IOException {
-        if (!_connected.compareAndSet(false, true))
-            return;
-
+    protected void connect() throws UnknownHostException, IOException {
         _socket = new Socket();
         _socket.setTcpNoDelay(true);
         _socket.setKeepAlive(false);
         _socket.setSoTimeout(10 * 1000);
         _socket.setSendBufferSize(32 * 1024);
         _socket.setReceiveBufferSize(32 * 1024);
-        _socket.connect(_server, 10 * 1000);
+        _socket.connect(getServerAddress(), 10 * 1000);
     }
 
-    public ServerResponse send(ServerRequest request) throws IOException {
-        OutputStream os = _socket.getOutputStream();
-        os.write(_dataProtocol.getVersion());
-        _dataProtocol.getTransferCodec().encode(os, request);
-        os.flush();
+    @Override
+    public Res invoke(Req request) {
+        try {
+            OutputStream os = _socket.getOutputStream();
+            os.write(getDataProtocol().getVersion());
+            getDataProtocol().getTransferCodec().encode(os, request);
+            os.flush();
 
-        InputStream is = _socket.getInputStream();
-        int version = is.read();
-        if (version == -1)
-            throw new EOFException();
+            InputStream is = _socket.getInputStream();
+            int version = is.read();
+            if (version == -1)
+                throw new EOFException();
 
-        DataProtocol protocol = DataProtocols.ALL.get(version);
-        if (protocol == null)
-            throw new DataProtocolException(
-                    "Unsupported protocol version: " + version + " from " + _socket.getRemoteSocketAddress());
-        return protocol.getTransferCodec().decode(is, ServerResponse.class);
+            DataProtocol protocol = DataProtocols.ALL.get(version);
+            if (protocol == null)
+                throw new DataProtocolException(
+                        "Unsupported protocol version: " + version + " from " + _socket.getRemoteSocketAddress());
+            return protocol.getTransferCodec().decode(is, getResponseType());
+        } catch (IOException e) {
+            throw new DataProtocolException(e);
+        }
     }
 
     @Override
     public void close() throws IOException {
-        if (!_connected.compareAndSet(true, false))
-            return;
-
-        if (_socket != null) {
+        if (_socket != null)
             _socket.close();
-            _socket = null;
-        }
     }
 
 }

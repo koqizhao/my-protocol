@@ -12,7 +12,7 @@ import io.mine.protocol.codec.TrunkedEncodingTransferCodec;
 public class TrunkedEncodingProtocol extends DefaultDataProtocol {
 
     public TrunkedEncodingProtocol(byte version, DataCodec dataCodec, LengthCodec lengthCodec, int trunkSize) {
-        super(version, dataCodec, lengthCodec, new TrunkedEncodingTransferCodec(trunkSize, dataCodec, lengthCodec));
+        super(version, lengthCodec, new TrunkedEncodingTransferCodec(trunkSize, dataCodec, lengthCodec));
     }
 
 }

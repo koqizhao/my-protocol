@@ -12,7 +12,7 @@ import io.mine.protocol.codec.LengthCodec;
 public class FixedEncodingProtocol extends DefaultDataProtocol {
 
     public FixedEncodingProtocol(byte version, DataCodec dataCodec, LengthCodec lengthCodec) {
-        super(version, dataCodec, lengthCodec, new FixedEncodingTransferCodec(dataCodec, lengthCodec));
+        super(version, lengthCodec, new FixedEncodingTransferCodec(dataCodec, lengthCodec));
     }
 
 }

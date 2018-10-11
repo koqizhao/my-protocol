@@ -1,6 +1,5 @@
 package io.mine.protocol.server;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -9,14 +8,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.mydotey.objectpool.facade.ThreadPools;
-import org.mydotey.objectpool.threadpool.ThreadPool;
-import org.mydotey.objectpool.threadpool.autoscale.AutoScaleThreadPoolConfig;
-
-import io.mine.protocol.api.ServerRequest;
-import io.mine.protocol.api.ServerResponse;
+import io.mine.protocol.api.Service;
 import io.mine.protocol.data.DataProtocol;
 import io.mine.protocol.data.DataProtocolException;
 import io.mine.protocol.data.DataProtocols;
@@ -26,42 +19,27 @@ import io.mine.protocol.data.DataProtocols;
  *
  * Oct 9, 2018
  */
-public class SyncServer implements Closeable {
+public class SyncServer<Req, Res> extends AbstractServer<Req, Res> {
 
-    private int _port;
     private ServerSocket _serverSocket;
 
-    private AtomicBoolean _started;
-    private ThreadPool _workerPool;
-
-    public SyncServer(int port) {
-        if (port < 0)
-            throw new IllegalArgumentException("port < 0: " + port);
-
-        _port = port;
-        _started = new AtomicBoolean();
+    public SyncServer(InetSocketAddress socketAddress, Service<Req, Res> service) {
+        super(socketAddress, service);
     }
 
-    public void start() throws IOException {
-        if (!_started.compareAndSet(false, true))
-            return;
-
+    @Override
+    protected void doStart() throws IOException {
         _serverSocket = new ServerSocket();
-        _serverSocket.setSoTimeout(10 * 1000);
+        _serverSocket.setSoTimeout(300 * 1000);
         _serverSocket.setReuseAddress(true);
         _serverSocket.setReceiveBufferSize(32 * 1024);
-        _serverSocket.bind(new InetSocketAddress(_port));
-
-        AutoScaleThreadPoolConfig threadPoolConfig = ThreadPools.newAutoScaleThreadPoolConfigBuilder()
-                .setCheckInterval(10).setMaxIdleTime(10 * 1000).setMaxSize(100).setMinSize(10).setQueueCapacity(10)
-                .setScaleFactor(10).build();
-        _workerPool = ThreadPools.newThreadPool(threadPoolConfig);
+        _serverSocket.bind(getSocketAddress());
 
         serve();
     }
 
     protected void serve() throws IOException {
-        while (_started.get()) {
+        while (isStarted()) {
             Socket socket;
             try {
                 socket = _serverSocket.accept();
@@ -78,7 +56,7 @@ public class SyncServer implements Closeable {
                 socket.setKeepAlive(false);
                 socket.setReceiveBufferSize(32 * 1024);
                 socket.setSendBufferSize(32 * 1024);
-                _workerPool.submit(() -> serve(socket));
+                getWorkerPool().submit(() -> serve(socket));
             } catch (Exception e) {
                 e.printStackTrace();
                 socket.close();
@@ -88,7 +66,7 @@ public class SyncServer implements Closeable {
 
     protected void serve(Socket socket) {
         try (InputStream is = socket.getInputStream(); OutputStream os = socket.getOutputStream();) {
-            while (_started.get()) {
+            while (isStarted()) {
                 int version = is.read();
                 if (version == -1) {
                     System.out.println("Got EOF. Connection closed.");
@@ -100,15 +78,14 @@ public class SyncServer implements Closeable {
                     throw new DataProtocolException(
                             "Unsupported protocol version: " + version + " from " + socket.getRemoteSocketAddress());
 
-                ServerRequest request = dataProtocol.getTransferCodec().decode(is, ServerRequest.class);
-                ServerResponse response = new ServerResponse();
-                response.setTime(System.currentTimeMillis());
-                response.setFeedback(String.format("Nice! %s, your time: %s, my time: %s", request.getName(),
-                        request.getTime(), response.getTime()));
+                Req request = dataProtocol.getTransferCodec().decode(is, getService().getRequestType());
+                Res response = getService().invoke(request);
+
                 os.write(version);
                 dataProtocol.getTransferCodec().encode(os, response);
                 os.flush();
             }
+        } catch (SocketTimeoutException e) {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -120,33 +97,12 @@ public class SyncServer implements Closeable {
         }
     }
 
-    public void stop() {
-        if (!_started.compareAndSet(true, false))
-            return;
-
-        try {
-            if (_serverSocket != null) {
-                _serverSocket.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        try {
-            if (_workerPool != null) {
-                _workerPool.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        _serverSocket = null;
-        _workerPool = null;
-    }
-
     @Override
-    public void close() throws IOException {
-        stop();
+    protected void doStop() throws IOException {
+        if (_serverSocket != null) {
+            _serverSocket.close();
+            _serverSocket = null;
+        }
     }
 
 }
