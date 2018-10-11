@@ -5,8 +5,8 @@ import java.net.InetSocketAddress;
 import io.mine.protocol.api.sample.SampleRequest;
 import io.mine.protocol.api.sample.SampleResponse;
 import io.mine.protocol.api.sample.SampleService;
+import io.mine.protocol.async.AsyncServer;
 import io.mine.protocol.server.Server;
-import io.mine.protocol.server.async.AsyncServer;
 
 /**
  * @author koqizhao

@@ -1,4 +1,4 @@
-package io.mine.protocol.server;
+package io.mine.protocol.requestcontext;
 
 import java.util.Objects;
 
@@ -9,11 +9,11 @@ import io.mine.protocol.data.DataProtocol;
  *
  * Oct 11, 2018
  */
-public abstract class AbstractServerContext implements RequestContext {
+public abstract class AbstractRequestContext implements RequestContext {
 
     private DataProtocol _dataProtocol;
 
-    public AbstractServerContext(DataProtocol dataProtocol) {
+    public AbstractRequestContext(DataProtocol dataProtocol) {
         Objects.requireNonNull(dataProtocol, "dataProtocol is null");
         _dataProtocol = dataProtocol;
     }

@@ -1,13 +1,12 @@
-package io.mine.protocol.client;
+package io.mine.protocol.sync;
 
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
+import io.mine.protocol.client.AbstractClient;
 import io.mine.protocol.data.DataProtocol;
 import io.mine.protocol.data.DataProtocolException;
 import io.mine.protocol.data.DataProtocols;
@@ -41,13 +40,13 @@ public class SyncClient<Req, Res> extends AbstractClient<Req, Res> {
     @Override
     public Res invoke(Req request) {
         try {
-            OutputStream os = _socket.getOutputStream();
-            os.write(getDataProtocol().getVersion());
-            getDataProtocol().getTransferCodec().encode(os, request);
-            os.flush();
+            SyncRequestContext context = new DefaultSyncRequestContext(_socket.getInputStream(),
+                    _socket.getOutputStream());
+            context.getOutputStream().write(getDataProtocol().getVersion());
+            getDataProtocol().getTransferCodec().encode(context.getOutputStream(), request);
+            context.getOutputStream().flush();
 
-            InputStream is = _socket.getInputStream();
-            int version = is.read();
+            int version = context.getInputStream().read();
             if (version == -1)
                 throw new EOFException();
 
@@ -55,7 +54,7 @@ public class SyncClient<Req, Res> extends AbstractClient<Req, Res> {
             if (protocol == null)
                 throw new DataProtocolException(
                         "Unsupported protocol version: " + version + " from " + _socket.getRemoteSocketAddress());
-            return protocol.getTransferCodec().decode(is, getResponseType());
+            return protocol.getTransferCodec().decode(context.getInputStream(), getResponseType());
         } catch (IOException e) {
             throw new DataProtocolException(e);
         }

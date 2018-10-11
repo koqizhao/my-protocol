@@ -1,14 +1,14 @@
-package io.mine.protocol.server.async;
+package io.mine.protocol.async;
 
 import io.mine.protocol.data.DataProtocol;
-import io.mine.protocol.server.AbstractServerContext;
+import io.mine.protocol.requestcontext.AbstractRequestContext;
 
 /**
  * @author koqizhao
  *
  * Oct 11, 2018
  */
-public class DefaultAsyncRequestContext extends AbstractServerContext implements AsyncRequestContext {
+public class DefaultAsyncRequestContext extends AbstractRequestContext implements AsyncRequestContext {
 
     private DefaultAsyncRequest _asyncRequest;
     private DefaultAsyncResponse _asyncResponse;

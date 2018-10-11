@@ -1,4 +1,4 @@
-package io.mine.protocol.server.sync;
+package io.mine.protocol.sync;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -65,7 +65,7 @@ public class SyncServer<Req, Res> extends AbstractServer<Req, Res> {
 
     protected void serve(Socket socket) {
         try {
-            DefaultSyncRequestContext context = new DefaultSyncRequestContext(socket.getInputStream(),
+            SyncRequestContext context = new DefaultSyncRequestContext(socket.getInputStream(),
                     socket.getOutputStream());
             while (isStarted()) {
                 int version = context.getInputStream().read();

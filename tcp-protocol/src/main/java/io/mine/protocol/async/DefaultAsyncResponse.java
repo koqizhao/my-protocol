@@ -1,4 +1,4 @@
-package io.mine.protocol.server.async;
+package io.mine.protocol.async;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,16 +20,6 @@ public class DefaultAsyncResponse implements AsyncResponse {
     public DefaultAsyncResponse() {
         _isComplete = new AtomicBoolean();
         _completeListeners = new ArrayList<>();
-    }
-
-    @Override
-    public boolean isComplete() {
-        return _isComplete.get();
-    }
-
-    @Override
-    public void complete() {
-        complete(null);
     }
 
     @Override

@@ -1,6 +1,6 @@
-package io.mine.protocol.server.async;
+package io.mine.protocol.async;
 
-import io.mine.protocol.server.RequestContext;
+import io.mine.protocol.requestcontext.RequestContext;
 
 /**
  * @author koqizhao

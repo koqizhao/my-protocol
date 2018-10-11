@@ -1,4 +1,4 @@
-package io.mine.protocol.server.async;
+package io.mine.protocol.async;
 
 import java.util.ArrayList;
 import java.util.List;

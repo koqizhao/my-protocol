@@ -1,4 +1,4 @@
-package io.mine.protocol.server.sync;
+package io.mine.protocol.sync;
 
 import java.io.InputStream;
 import java.io.OutputStream;

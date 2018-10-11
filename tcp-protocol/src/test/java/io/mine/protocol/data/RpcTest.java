@@ -22,9 +22,9 @@ import io.mine.protocol.api.sample.SampleRequest;
 import io.mine.protocol.api.sample.SampleResponse;
 import io.mine.protocol.api.sample.SampleService;
 import io.mine.protocol.client.Client;
-import io.mine.protocol.client.SyncClient;
 import io.mine.protocol.server.Server;
-import io.mine.protocol.server.sync.SyncServer;
+import io.mine.protocol.sync.SyncClient;
+import io.mine.protocol.sync.SyncServer;
 
 /**
  * @author koqizhao

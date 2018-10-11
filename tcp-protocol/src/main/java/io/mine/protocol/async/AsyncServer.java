@@ -1,4 +1,4 @@
-package io.mine.protocol.server.async;
+package io.mine.protocol.async;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -50,9 +50,11 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
     protected void serve() throws IOException {
         while (isStarted()) {
             try {
-                _selector.select(1 * 1000);
+                int count = _selector.select(1 * 1000);
+                if (count == 0)
+                    continue;
             } catch (IOException e) {
-
+                continue;
             }
 
             Iterator<SelectionKey> selectedKeys = _selector.selectedKeys().iterator();
@@ -207,6 +209,11 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
         if (_serverSocketChannel != null) {
             _serverSocketChannel.close();
             _serverSocketChannel = null;
+        }
+
+        if (_selector != null) {
+            _selector.close();
+            _selector = null;
         }
     }
 

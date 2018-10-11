@@ -1,4 +1,4 @@
-package io.mine.protocol.server.async;
+package io.mine.protocol.async;
 
 /**
  * @author koqizhao
@@ -6,10 +6,6 @@ package io.mine.protocol.server.async;
  * Oct 11, 2018
  */
 public interface AsyncResponse {
-
-    boolean isComplete();
-
-    void complete();
 
     void complete(byte[] responseData);
 
