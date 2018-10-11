@@ -51,7 +51,6 @@ public class SyncServer<Req, Res> extends AbstractServer<Req, Res> {
 
             try {
                 socket.setTcpNoDelay(true);
-                socket.setSoTimeout(10 * 1000);
                 socket.setKeepAlive(false);
                 socket.setReceiveBufferSize(32 * 1024);
                 socket.setSendBufferSize(32 * 1024);

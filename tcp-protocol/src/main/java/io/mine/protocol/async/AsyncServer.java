@@ -69,7 +69,7 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
                     socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, 32 * 1024);
                     socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, false);
                     socketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-                    socketChannel.register(_selector, SelectionKey.OP_READ, new ChannelData());
+                    socketChannel.register(_selector, SelectionKey.OP_READ, new ChannelContext());
                     System.out.println("Connection established from client: " + socketChannel.getRemoteAddress());
                 } else if (selectionKey.isReadable()) {
                     handleRead(selectionKey);
@@ -80,11 +80,10 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
         }
     }
 
-    @SuppressWarnings("unchecked")
     protected void handleRead(SelectionKey selectionKey) {
         SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
-        ChannelData channelData = (ChannelData) selectionKey.attachment();
-        ByteBuffer buffer = channelData.buffer;
+        ChannelContext channelContext = (ChannelContext) selectionKey.attachment();
+        ByteBuffer buffer = channelContext.getBuffer();
         try {
             int count;
             count = socketChannel.read(buffer);
@@ -96,18 +95,19 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
 
             buffer.flip();
 
-            DefaultAsyncRequestContext context = channelData.context;
-            if (context == null) {
+            DefaultAsyncRequestContext requestContext = channelContext.getRequestContext();
+            if (requestContext == null) {
                 int version = buffer.get();
                 DataProtocol dataProtocol = DataProtocols.ALL.get(version);
                 if (dataProtocol == null)
                     throw new DataProtocolException("Unknown protocol: " + version);
 
-                context = channelData.context = new DefaultAsyncRequestContext(dataProtocol);
+                requestContext = new DefaultAsyncRequestContext(dataProtocol);
+                channelContext.setRequestContext(requestContext);
             }
 
-            DefaultAsyncRequest request = context.getRequest();
-            DataProtocol dataProtocol = context.getDataProtocol();
+            DefaultAsyncRequest request = requestContext.getRequest();
+            DataProtocol dataProtocol = requestContext.getDataProtocol();
             LengthCodec lengthCodec = dataProtocol.getLengthCodec();
             while (buffer.hasRemaining()) {
                 if (request.needNextTrunk()) {
@@ -123,7 +123,7 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
                         request.ready();
                         buffer.clear();
 
-                        context.getResponse().addCompleteListener(bytes -> {
+                        requestContext.getResponse().addCompleteListener(bytes -> {
                             buffer.put(dataProtocol.getVersion());
                             buffer.put(bytes);
                             buffer.flip();
@@ -131,7 +131,7 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
                             _selector.wakeup();
                         });
 
-                        final DefaultAsyncRequestContext c = context;
+                        final DefaultAsyncRequestContext c = requestContext;
                         getWorkerPool().submit(() -> handleRequest(c));
                         return;
                     }
@@ -161,16 +161,15 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
         }
     }
 
-    @SuppressWarnings("unchecked")
     protected void handleWrite(SelectionKey selectionKey) {
         SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
-        ChannelData channelData = (ChannelData) selectionKey.attachment();
-        ByteBuffer buffer = channelData.buffer;
+        ChannelContext channelContext = (ChannelContext) selectionKey.attachment();
+        ByteBuffer buffer = channelContext.getBuffer();
         try {
             socketChannel.write(buffer);
             if (!buffer.hasRemaining()) {
                 buffer.clear();
-                channelData.context = null;
+                channelContext.setRequestContext(null);
                 selectionKey.interestOps(SelectionKey.OP_READ);
             }
         } catch (Exception e) {
@@ -186,13 +185,14 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
         }
     }
 
-    protected void handleRequest(DefaultAsyncRequestContext context) {
-        TransferCodec transferCodec = context.getDataProtocol().getTransferCodec();
+    protected void handleRequest(DefaultAsyncRequestContext requestContext) {
+        TransferCodec transferCodec = requestContext.getDataProtocol().getTransferCodec();
         Res response = null;
         try {
-            byte[] requestData = context.getRequest().getData();
+            byte[] requestData = requestContext.getRequest().getData();
             if (requestData != null) {
-                Req request = transferCodec.decode(context.getRequest().getData(), getService().getRequestType());
+                Req request = transferCodec.decode(requestContext.getRequest().getData(),
+                        getService().getRequestType());
                 response = getService().invoke(request);
             }
         } catch (Exception ex) {
@@ -200,7 +200,7 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
             ex.printStackTrace();
         } finally {
             byte[] responseData = transferCodec.encode(response);
-            context.getResponse().complete(responseData);
+            requestContext.getResponse().complete(responseData);
         }
     }
 
@@ -215,11 +215,6 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
             _selector.close();
             _selector = null;
         }
-    }
-
-    protected class ChannelData {
-        public final ByteBuffer buffer = ByteBuffer.allocate(32 * 1024);
-        public DefaultAsyncRequestContext context;
     }
 
 }

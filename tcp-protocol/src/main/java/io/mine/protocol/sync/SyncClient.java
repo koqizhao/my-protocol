@@ -31,7 +31,7 @@ public class SyncClient<Req, Res> extends AbstractClient<Req, Res> {
         _socket = new Socket();
         _socket.setTcpNoDelay(true);
         _socket.setKeepAlive(false);
-        _socket.setSoTimeout(100 * 1000);
+        _socket.setSoTimeout(10 * 1000);
         _socket.setSendBufferSize(32 * 1024);
         _socket.setReceiveBufferSize(32 * 1024);
         _socket.connect(getServerAddress(), 10 * 1000);
@@ -54,7 +54,11 @@ public class SyncClient<Req, Res> extends AbstractClient<Req, Res> {
             if (protocol == null)
                 throw new DataProtocolException(
                         "Unsupported protocol version: " + version + " from " + _socket.getRemoteSocketAddress());
-            return protocol.getTransferCodec().decode(context.getInputStream(), getResponseType());
+            Res response = protocol.getTransferCodec().decode(context.getInputStream(), getResponseType());
+            if (response == null)
+                throw new DataProtocolException("Server returned null.");
+
+            return response;
         } catch (IOException e) {
             throw new DataProtocolException(e);
         }
@@ -62,8 +66,7 @@ public class SyncClient<Req, Res> extends AbstractClient<Req, Res> {
 
     @Override
     public void close() throws IOException {
-        if (_socket != null)
-            _socket.close();
+        _socket.close();
     }
 
 }
