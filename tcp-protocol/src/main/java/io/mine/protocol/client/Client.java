@@ -11,7 +11,7 @@ import io.mine.protocol.data.DataProtocol;
  *
  * Oct 11, 2018
  */
-public interface ServiceClient<Req, Res> extends Service<Req, Res>, Closeable {
+public interface Client<Req, Res> extends Service<Req, Res>, Closeable {
 
     InetSocketAddress getServerAddress();
 

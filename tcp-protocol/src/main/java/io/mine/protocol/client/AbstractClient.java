@@ -11,13 +11,13 @@ import io.mine.protocol.data.DataProtocol;
  *
  * Oct 11, 2018
  */
-public abstract class AbstractServiceClient<Req, Res> extends AbstractService<Req, Res>
-        implements ServiceClient<Req, Res> {
+public abstract class AbstractClient<Req, Res> extends AbstractService<Req, Res>
+        implements Client<Req, Res> {
 
     private InetSocketAddress _serverAddress;
     private DataProtocol _dataProtocol;
 
-    public AbstractServiceClient(Class<Req> requestType, Class<Res> responseType, InetSocketAddress serverAddress,
+    public AbstractClient(Class<Req> requestType, Class<Res> responseType, InetSocketAddress serverAddress,
             DataProtocol dataProtocol) {
         super(requestType, responseType);
 

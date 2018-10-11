@@ -52,4 +52,11 @@ public class DataProtocolTest {
         }
     }
 
+    @Test
+    public void encodeTest2() {
+        byte[] bytes = _protocol.getTransferCodec().encode(_data);
+        Object data = _protocol.getTransferCodec().decode(bytes, _data == null ? null : _data.getClass());
+        Assert.assertEquals(_data, data);
+    }
+
 }

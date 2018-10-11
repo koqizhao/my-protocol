@@ -1,8 +1,6 @@
-package io.mine.protocol.server;
+package io.mine.protocol.server.sync;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -13,6 +11,7 @@ import io.mine.protocol.api.Service;
 import io.mine.protocol.data.DataProtocol;
 import io.mine.protocol.data.DataProtocolException;
 import io.mine.protocol.data.DataProtocols;
+import io.mine.protocol.server.AbstractServer;
 
 /**
  * @author koqizhao
@@ -65,9 +64,11 @@ public class SyncServer<Req, Res> extends AbstractServer<Req, Res> {
     }
 
     protected void serve(Socket socket) {
-        try (InputStream is = socket.getInputStream(); OutputStream os = socket.getOutputStream();) {
+        try {
+            DefaultSyncRequestContext context = new DefaultSyncRequestContext(socket.getInputStream(),
+                    socket.getOutputStream());
             while (isStarted()) {
-                int version = is.read();
+                int version = context.getInputStream().read();
                 if (version == -1) {
                     System.out.println("Got EOF. Connection closed.");
                     break;
@@ -78,12 +79,13 @@ public class SyncServer<Req, Res> extends AbstractServer<Req, Res> {
                     throw new DataProtocolException(
                             "Unsupported protocol version: " + version + " from " + socket.getRemoteSocketAddress());
 
-                Req request = dataProtocol.getTransferCodec().decode(is, getService().getRequestType());
+                Req request = dataProtocol.getTransferCodec().decode(context.getInputStream(),
+                        getService().getRequestType());
                 Res response = getService().invoke(request);
 
-                os.write(version);
-                dataProtocol.getTransferCodec().encode(os, response);
-                os.flush();
+                context.getOutputStream().write(version);
+                dataProtocol.getTransferCodec().encode(context.getOutputStream(), response);
+                context.getOutputStream().flush();
             }
         } catch (SocketTimeoutException e) {
         } catch (Exception e) {

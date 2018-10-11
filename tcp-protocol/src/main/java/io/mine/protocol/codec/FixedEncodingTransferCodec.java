@@ -48,9 +48,10 @@ public class FixedEncodingTransferCodec extends AbstractTransferCodec {
             return null;
 
         position += getLengthCodec().getLengthByteCount();
-        int remainingLength = length - position;
-        if (remainingLength < length + getLengthCodec().getLengthByteCount())
-            throw new InsufficientDataException(length, remainingLength);
+        int remainingLength = bytes.length - position;
+        int expected = length + getLengthCodec().getLengthByteCount();
+        if (remainingLength < expected)
+            throw new InsufficientDataException(expected, remainingLength);
 
         return getDataCodec().decode(bytes, position, length, clazz);
     }
