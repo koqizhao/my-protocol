@@ -25,9 +25,13 @@ class NettyEncoder<T> extends MessageToByteEncoder<T> {
     @Override
     protected void encode(ChannelHandlerContext ctx, T msg, ByteBuf out) throws Exception {
         Attribute<DataProtocol> dataProtocolAttribute = ctx.channel().attr(_dataProtocolAttributeKey);
-        DataProtocol dataProtocol = dataProtocolAttribute.get();
+        DataProtocol dataProtocol = getDataProtocol(dataProtocolAttribute);
         byte[] responseData = dataProtocol.getTransferCodec().encode(msg);
         out.writeByte(dataProtocol.getVersion()).writeBytes(responseData);
+    }
+
+    protected DataProtocol getDataProtocol(Attribute<DataProtocol> dataProtocolAttribute) {
+        return dataProtocolAttribute.get();
     }
 
 }

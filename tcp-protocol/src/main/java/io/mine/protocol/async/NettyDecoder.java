@@ -57,7 +57,7 @@ class NettyDecoder<T> extends ByteToMessageDecoder {
                 if (length == TransferCodec.FIN_LENGTH) {
                     _asyncRequest.ready();
                     T data = transferCodec.decode(_asyncRequest.getData(), _dataType);
-                    addToOut(out, data, dataProtocol);
+                    addToOut(ctx, dataProtocol, out, data);
                     reset();
                     break;
                 }
@@ -74,7 +74,7 @@ class NettyDecoder<T> extends ByteToMessageDecoder {
         }
     }
 
-    protected void addToOut(List<Object> out, T data, DataProtocol dataProtocol) {
+    protected void addToOut(ChannelHandlerContext ctx, DataProtocol dataProtocol, List<Object> out, T data) {
         out.add(data);
     }
 

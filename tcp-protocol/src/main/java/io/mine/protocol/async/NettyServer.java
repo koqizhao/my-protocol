@@ -6,13 +6,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import io.mine.protocol.api.Service;
-import io.mine.protocol.codec.LengthCodec;
-import io.mine.protocol.codec.TransferCodec;
 import io.mine.protocol.data.DataProtocol;
-import io.mine.protocol.data.DataProtocolException;
-import io.mine.protocol.data.DataProtocols;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -21,8 +16,8 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.ByteToMessageDecoder;
-import io.netty.handler.codec.MessageToByteEncoder;
+import io.netty.util.Attribute;
+import io.netty.util.AttributeKey;
 
 /**
  * @author koqizhao
@@ -30,6 +25,8 @@ import io.netty.handler.codec.MessageToByteEncoder;
  * Oct 12, 2018
  */
 public class NettyServer<Req, Res> extends AbstractAsyncServer<Req, Res> {
+
+    protected static final AttributeKey<DataProtocol> _dataProtocolAttributeKey = AttributeKey.valueOf("data-protocol");
 
     private ServerBootstrap _serverBootstrap;
 
@@ -46,7 +43,10 @@ public class NettyServer<Req, Res> extends AbstractAsyncServer<Req, Res> {
                 .childHandler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) throws Exception {
-                        ch.pipeline().addLast(new NettyEncoder(), new NettyDecoder(), new NettyServerHandler());
+                        ch.pipeline().addLast(
+                                new NettyServerEncoder(getService().getResponseType(), _dataProtocolAttributeKey),
+                                new NettyServerDecoder(getService().getRequestType()), new NettyServerHandler());
+                        ch.attr(_dataProtocolAttributeKey).set(null);
                     }
                 });
         ChannelFuture future = _serverBootstrap.bind().sync();
@@ -64,9 +64,7 @@ public class NettyServer<Req, Res> extends AbstractAsyncServer<Req, Res> {
         }
     }
 
-    protected void handleRequest(ChannelHandlerContext ctx, NettyRequestContext<Req, Res> requestContext)
-            throws InterruptedException {
-        Req request = requestContext.getRequest();
+    protected void handleRequest(ChannelHandlerContext ctx, Req request) throws InterruptedException {
         if (isAsyncService()) {
             CompletableFuture<Res> future = getAsyncService().invokeAsync(request);
             future.whenComplete((res, e) -> {
@@ -76,8 +74,7 @@ public class NettyServer<Req, Res> extends AbstractAsyncServer<Req, Res> {
                     res = null;
                 }
 
-                requestContext.setResponse(res);
-                ctx.writeAndFlush(requestContext);
+                ctx.writeAndFlush(res);
             });
 
             return;
@@ -92,92 +89,51 @@ public class NettyServer<Req, Res> extends AbstractAsyncServer<Req, Res> {
                 e.printStackTrace();
             }
 
-            requestContext.setResponse(response);
-            ctx.writeAndFlush(requestContext);
+            ctx.writeAndFlush(response);
         });
     }
 
-    protected class NettyDecoder extends ByteToMessageDecoder {
+    protected class NettyServerEncoder extends NettyEncoder<Res> {
 
-        private volatile NettyRequestContext<Req, Res> _requestContext;
-        private volatile DefaultAsyncRequest _asyncRequest;
+        public NettyServerEncoder(Class<Res> dataType, AttributeKey<DataProtocol> dataProtocolAttributeKey) {
+            super(dataType, dataProtocolAttributeKey);
+        }
 
         @Override
-        protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-            if (_requestContext == null) {
-                if (in.readableBytes() < 1)
-                    return;
-
-                byte version = in.readByte();
-                DataProtocol dataProtocol = DataProtocols.ALL.get(version);
-                if (dataProtocol == null)
-                    throw new DataProtocolException("Unknown protocol: " + version);
-
-                _requestContext = new NettyRequestContext<Req, Res>(dataProtocol);
-                _asyncRequest = new DefaultAsyncRequest();
-            }
-
-            DataProtocol dataProtocol = _requestContext.getDataProtocol();
-            LengthCodec lengthCodec = dataProtocol.getLengthCodec();
-            TransferCodec transferCodec = dataProtocol.getTransferCodec();
-            while (in.readableBytes() > 0) {
-                if (_asyncRequest.needNextTrunk()) {
-                    if (in.readableBytes() < lengthCodec.getLengthByteCount())
-                        break;
-
-                    byte[] lengthBytes = new byte[lengthCodec.getLengthByteCount()];
-                    in.readBytes(lengthBytes);
-                    _asyncRequest.setCurrentTrunk(lengthBytes);
-                    _asyncRequest.completeCurrentTrunk();
-                    int length = lengthCodec.decode(lengthBytes);
-                    if (length == TransferCodec.FIN_LENGTH) {
-                        _asyncRequest.ready();
-                        Req request = NettyServer.this.decode(transferCodec, _asyncRequest.getData());
-                        _requestContext.setRequest(request);
-                        out.add(_requestContext);
-                        reset();
-                        break;
-                    }
-
-                    _asyncRequest.setCurrentTrunk(new byte[length]);
-                } else {
-                    byte[] dataBytes = _asyncRequest.getCurrentTrunk();
-                    int needRead = _asyncRequest.getCurrentTrunkRemaining();
-                    if (needRead > in.readableBytes())
-                        needRead = in.readableBytes();
-                    in.readBytes(dataBytes, _asyncRequest.getCurrentTrunkRead(), needRead);
-                    _asyncRequest.addCurrentTrunkRead(needRead);
-                }
-            }
+        protected DataProtocol getDataProtocol(Attribute<DataProtocol> dataProtocolAttribute) {
+            return dataProtocolAttribute.getAndSet(null);
         }
 
-        private void reset() {
-            _requestContext = null;
-            _asyncRequest = null;
+    }
+
+    protected class NettyServerDecoder extends NettyDecoder<Req> {
+
+        public NettyServerDecoder(Class<Req> dataType) {
+            super(dataType);
         }
+
+        @Override
+        protected void addToOut(ChannelHandlerContext ctx, DataProtocol dataProtocol, List<Object> out, Req data) {
+            out.add(data);
+            ctx.channel().attr(_dataProtocolAttributeKey).set(dataProtocol);
+        }
+
     }
 
     protected class NettyServerHandler extends ChannelInboundHandlerAdapter {
+
         @SuppressWarnings("unchecked")
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-            handleRequest(ctx, (NettyRequestContext<Req, Res>) msg);
+            handleRequest(ctx, (Req) msg);
         }
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+            cause.printStackTrace();
             ctx.close().addListener(f -> System.out.println("connection closed by error: " + cause));
         }
-    }
 
-    protected class NettyEncoder extends MessageToByteEncoder<NettyRequestContext<Req, Res>> {
-        @Override
-        protected void encode(ChannelHandlerContext ctx, NettyRequestContext<Req, Res> msg, ByteBuf out)
-                throws Exception {
-            DataProtocol dataProtocol = msg.getDataProtocol();
-            byte[] responseData = dataProtocol.getTransferCodec().encode(msg.getResponse());
-            out.writeByte(dataProtocol.getVersion()).writeBytes(responseData);
-        }
     }
 
 }

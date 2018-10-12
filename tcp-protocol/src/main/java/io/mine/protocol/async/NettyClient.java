@@ -45,23 +45,26 @@ public class NettyClient<Req, Res> extends AbstractClient<Req, Res> {
                     }
                 });
         _bootstrap.connect().sync();
+        while (_channelHandlerContext == null)
+            Thread.sleep(1);
     }
 
     protected class NettyClientHandler extends ChannelInboundHandlerAdapter {
         @SuppressWarnings("unchecked")
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-            _completableFuture.complete((Res) msg);
-            _completableFuture = null;
+            if (_completableFuture != null) {
+                _completableFuture.complete((Res) msg);
+            }
         }
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             if (_completableFuture != null) {
                 _completableFuture.completeExceptionally(cause);
-                _completableFuture = null;
             }
 
+            cause.printStackTrace();
             ctx.close().addListener(f -> System.out.println("connection closed by error: " + cause));
         }
 
@@ -79,6 +82,8 @@ public class NettyClient<Req, Res> extends AbstractClient<Req, Res> {
             return _completableFuture.get();
         } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
+        } finally {
+            _completableFuture = null;
         }
     }
 
