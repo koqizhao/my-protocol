@@ -3,8 +3,10 @@ package io.mine.protocol.data;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -23,16 +25,11 @@ public class DataProtocolTest {
 
     @Parameters(name = "{index}: protocol={0}, data={1}")
     public static Collection<Object[]> data() {
-        return Arrays.asList(new Object[] { DataProtocols.V0, 10 }, new Object[] { DataProtocols.V0, "ok" },
-                new Object[] { DataProtocols.V0, true }, new Object[] { DataProtocols.V0, false },
-                new Object[] { DataProtocols.V0, 0 }, new Object[] { DataProtocols.V0, 99.1F },
-                new Object[] { DataProtocols.V0, -100.1 }, new Object[] { DataProtocols.V0, (byte) 33 },
-                new Object[] { DataProtocols.V0, null }, new Object[] { DataProtocols.V1, 10 },
-                new Object[] { DataProtocols.V1, "ok" }, new Object[] { DataProtocols.V1, true },
-                new Object[] { DataProtocols.V1, false }, new Object[] { DataProtocols.V1, 0 },
-                new Object[] { DataProtocols.V1, 99.1F }, new Object[] { DataProtocols.V1, -100.1 },
-                new Object[] { DataProtocols.V1, (byte) 33 }, new Object[] { DataProtocols.V1, null },
-                new Object[] { DataProtocols.V1, Util.multiply("Hello, World!", 128) });
+        List<List<Object>> parameterValues = new ArrayList<>();
+        parameterValues.add(new ArrayList<>(DataProtocols.ALL.values()));
+        parameterValues.add(Arrays.asList(10, "ok", true, false, 0, 99.1F, -100.1, (byte) 33, null,
+                Util.multiply("Hello, World!", 128)));
+        return Util.generateParametersCombination(parameterValues);
     }
 
     @Parameter(0)

@@ -2,9 +2,12 @@ package io.mine.protocol.data;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -18,9 +21,13 @@ import org.mydotey.objectpool.facade.ThreadPools;
 import org.mydotey.objectpool.threadpool.ThreadPool;
 import org.mydotey.objectpool.threadpool.ThreadPoolConfig;
 
+import io.mine.protocol.api.Service;
+import io.mine.protocol.api.sample.SampleAsyncService;
 import io.mine.protocol.api.sample.SampleRequest;
 import io.mine.protocol.api.sample.SampleResponse;
 import io.mine.protocol.api.sample.SampleService;
+import io.mine.protocol.async.AsyncClient;
+import io.mine.protocol.async.AsyncServer;
 import io.mine.protocol.client.Client;
 import io.mine.protocol.server.Server;
 import io.mine.protocol.sync.SyncClient;
@@ -34,21 +41,115 @@ import io.mine.protocol.sync.SyncServer;
 @RunWith(Parameterized.class)
 public class RpcTest {
 
-    @Parameters(name = "{index}: port={0}, protocol={1}")
+    private static Supplier<Service<SampleRequest, SampleResponse>> _syncServiceFactory = new Supplier<Service<SampleRequest, SampleResponse>>() {
+        @Override
+        public Service<SampleRequest, SampleResponse> get() {
+            return new SampleService();
+        }
+
+        @Override
+        public String toString() {
+            return "sync";
+        }
+    };
+
+    private static Supplier<Service<SampleRequest, SampleResponse>> _asyncServiceFactory = new Supplier<Service<SampleRequest, SampleResponse>>() {
+        @Override
+        public Service<SampleRequest, SampleResponse> get() {
+            return new SampleAsyncService();
+        }
+
+        @Override
+        public String toString() {
+            return "async";
+        }
+    };
+
+    private static BiFunction<InetSocketAddress, Service<SampleRequest, SampleResponse>, Server<SampleRequest, SampleResponse>> _syncServerFactory = new BiFunction<InetSocketAddress, Service<SampleRequest, SampleResponse>, Server<SampleRequest, SampleResponse>>() {
+        @Override
+        public Server<SampleRequest, SampleResponse> apply(InetSocketAddress t,
+                Service<SampleRequest, SampleResponse> u) {
+            return new SyncServer<>(t, u);
+        }
+
+        @Override
+        public String toString() {
+            return "sync";
+        }
+    };
+    private static BiFunction<InetSocketAddress, Service<SampleRequest, SampleResponse>, Server<SampleRequest, SampleResponse>> _asyncServerFactory = new BiFunction<InetSocketAddress, Service<SampleRequest, SampleResponse>, Server<SampleRequest, SampleResponse>>() {
+        @Override
+        public Server<SampleRequest, SampleResponse> apply(InetSocketAddress t,
+                Service<SampleRequest, SampleResponse> u) {
+            return new AsyncServer<>(t, u);
+        }
+
+        @Override
+        public String toString() {
+            return "async";
+        }
+    };
+
+    private static BiFunction<InetSocketAddress, DataProtocol, Client<SampleRequest, SampleResponse>> _syncClientFactory = new BiFunction<InetSocketAddress, DataProtocol, Client<SampleRequest, SampleResponse>>() {
+        @Override
+        public Client<SampleRequest, SampleResponse> apply(InetSocketAddress t, DataProtocol u) {
+            try {
+                return new SyncClient<>(SampleRequest.class, SampleResponse.class, t, u);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "sync";
+        }
+    };
+
+    private static BiFunction<InetSocketAddress, DataProtocol, Client<SampleRequest, SampleResponse>> _asyncClientFactory = new BiFunction<InetSocketAddress, DataProtocol, Client<SampleRequest, SampleResponse>>() {
+        @Override
+        public Client<SampleRequest, SampleResponse> apply(InetSocketAddress t, DataProtocol u) {
+            try {
+                return new AsyncClient<>(SampleRequest.class, SampleResponse.class, t, u);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "async";
+        }
+    };
+
+    @Parameters(name = "{index}: service={0}, server={1}, client={2}, port={3}, protocol={4}, name={5}")
     public static Collection<Object[]> data() {
-        return Arrays.asList(new Object[] { 9999, DataProtocols.V0, "World" },
-                new Object[] { 9999, DataProtocols.V0, "World2" }, new Object[] { 9998, DataProtocols.V0, "World" },
-                new Object[] { 9998, DataProtocols.V1, "World" },
-                new Object[] { 9998, DataProtocols.V1, Util.multiply("World", 128) });
+        List<List<Object>> parameterValues = new ArrayList<>();
+        parameterValues.add(Arrays.asList(_syncServiceFactory, _asyncServiceFactory));
+        parameterValues.add(Arrays.asList(_syncServerFactory, _asyncServerFactory));
+        parameterValues.add(Arrays.asList(_syncClientFactory, _asyncClientFactory));
+        parameterValues.add(Arrays.asList(9999, 9998));
+        parameterValues.add(new ArrayList<>(DataProtocols.ALL.values()));
+        parameterValues.add(Arrays.asList("World", "World2", Util.multiply("World", 128)));
+        return Util.generateParametersCombination(parameterValues);
     }
 
     @Parameter(0)
-    public int port;
+    public Supplier<Service<SampleRequest, SampleResponse>> serviceFactory;
 
     @Parameter(1)
-    public DataProtocol dataProtocol;
+    public BiFunction<InetSocketAddress, Service<SampleRequest, SampleResponse>, Server<SampleRequest, SampleResponse>> serverFactory;
 
     @Parameter(2)
+    public BiFunction<InetSocketAddress, DataProtocol, Client<SampleRequest, SampleResponse>> clientFactory;
+
+    @Parameter(3)
+    public int port;
+
+    @Parameter(4)
+    public DataProtocol dataProtocol;
+
+    @Parameter(5)
     public String name;
 
     private ThreadPool _serverThreadPool;
@@ -62,7 +163,7 @@ public class RpcTest {
                 .build();
         _serverThreadPool = ThreadPools.newThreadPool(threadPoolConfig);
         _serverThreadPool.submit(() -> {
-            _server = newServer(serverAddress);
+            _server = serverFactory.apply(serverAddress, serviceFactory.get());
             try {
                 _server.start();
             } catch (IOException e) {
@@ -72,16 +173,7 @@ public class RpcTest {
 
         Thread.sleep(1 * 1000);
 
-        _client = newClient(serverAddress);
-    }
-
-    protected Server<SampleRequest, SampleResponse> newServer(InetSocketAddress serverAddress) {
-        return new SyncServer<>(serverAddress, new SampleService());
-    }
-
-    protected Client<SampleRequest, SampleResponse> newClient(InetSocketAddress serverAddress)
-            throws UnknownHostException, IOException {
-        return new SyncClient<>(SampleRequest.class, SampleResponse.class, serverAddress, dataProtocol);
+        _client = clientFactory.apply(serverAddress, dataProtocol);
     }
 
     @After

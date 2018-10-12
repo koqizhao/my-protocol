@@ -10,7 +10,9 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 
+import io.mine.protocol.api.AsyncService;
 import io.mine.protocol.api.Service;
 import io.mine.protocol.codec.LengthCodec;
 import io.mine.protocol.codec.TransferCodec;
@@ -28,9 +30,16 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
 
     private ServerSocketChannel _serverSocketChannel;
     private Selector _selector;
+    private boolean _isAsyncService;
+    private AsyncService<Req, Res> _asyncService;
 
     public AsyncServer(InetSocketAddress socketAddress, Service<Req, Res> service) {
         super(socketAddress, service);
+
+        if (service instanceof AsyncService) {
+            _isAsyncService = true;
+            _asyncService = (AsyncService<Req, Res>) service;
+        }
     }
 
     @Override
@@ -187,21 +196,56 @@ public class AsyncServer<Req, Res> extends AbstractServer<Req, Res> {
 
     protected void handleRequest(DefaultAsyncRequestContext requestContext) {
         TransferCodec transferCodec = requestContext.getDataProtocol().getTransferCodec();
-        Res response = null;
-        try {
-            byte[] requestData = requestContext.getRequest().getData();
-            if (requestData != null) {
-                Req request = transferCodec.decode(requestContext.getRequest().getData(),
-                        getService().getRequestType());
+        Req request = decode(transferCodec, requestContext.getRequest().getData());
+        if (!_isAsyncService) {
+            Res response = null;
+            try {
                 response = getService().invoke(request);
+            } catch (Exception ex) {
+                System.out.println("service execution failed");
+                ex.printStackTrace();
             }
-        } catch (Exception ex) {
-            System.out.println("handle request failed");
-            ex.printStackTrace();
-        } finally {
-            byte[] responseData = transferCodec.encode(response);
+
+            byte[] responseData = encode(transferCodec, response);
             requestContext.getResponse().complete(responseData);
+            return;
         }
+
+        CompletableFuture<Res> future = _asyncService.invokeAsync(request);
+        future.whenComplete((res, e) -> {
+            if (e != null) {
+                System.out.println("async service execution failed");
+                e.printStackTrace();
+                res = null;
+            }
+
+            byte[] responseData = encode(transferCodec, res);
+            requestContext.getResponse().complete(responseData);
+        });
+    }
+
+    protected Req decode(TransferCodec transferCodec, byte[] requestData) {
+        Req request = null;
+        try {
+            request = transferCodec.decode(requestData, getService().getRequestType());
+        } catch (Exception ex) {
+            System.out.println("request decode failed");
+            ex.printStackTrace();
+        }
+
+        return request;
+    }
+
+    protected byte[] encode(TransferCodec transferCodec, Res response) {
+        byte[] responseData = null;
+        try {
+            responseData = transferCodec.encode(response);
+        } catch (Exception ex) {
+            System.out.println("request encode failed");
+            ex.printStackTrace();
+        }
+
+        return responseData;
     }
 
     @Override
