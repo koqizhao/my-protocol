@@ -93,7 +93,6 @@ public class NettyServer<Req, Res> extends AbstractAsyncServer<Req, Res> {
             }
 
             requestContext.setResponse(response);
-            System.out.println("write response started");
             ctx.writeAndFlush(requestContext);
         });
     }
@@ -136,7 +135,6 @@ public class NettyServer<Req, Res> extends AbstractAsyncServer<Req, Res> {
                         Req request = NettyServer.this.decode(transferCodec, _asyncRequest.getData());
                         _requestContext.setRequest(request);
                         out.add(_requestContext);
-                        System.out.println("decode success");
                         reset();
                         break;
                     }
@@ -179,7 +177,6 @@ public class NettyServer<Req, Res> extends AbstractAsyncServer<Req, Res> {
             DataProtocol dataProtocol = msg.getDataProtocol();
             byte[] responseData = dataProtocol.getTransferCodec().encode(msg.getResponse());
             out.writeByte(dataProtocol.getVersion()).writeBytes(responseData);
-            System.out.println("encode success");
         }
     }
 

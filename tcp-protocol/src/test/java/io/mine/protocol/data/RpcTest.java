@@ -28,6 +28,7 @@ import io.mine.protocol.api.sample.SampleResponse;
 import io.mine.protocol.api.sample.SampleService;
 import io.mine.protocol.async.AsyncClient;
 import io.mine.protocol.async.AsyncServer;
+import io.mine.protocol.async.NettyClient;
 import io.mine.protocol.async.NettyServer;
 import io.mine.protocol.client.Client;
 import io.mine.protocol.server.Server;
@@ -137,12 +138,28 @@ public class RpcTest {
         }
     };
 
+    private static BiFunction<InetSocketAddress, DataProtocol, Client<SampleRequest, SampleResponse>> _nettyClientFactory = new BiFunction<InetSocketAddress, DataProtocol, Client<SampleRequest, SampleResponse>>() {
+        @Override
+        public Client<SampleRequest, SampleResponse> apply(InetSocketAddress t, DataProtocol u) {
+            try {
+                return new NettyClient<>(SampleRequest.class, SampleResponse.class, t, u);
+            } catch (IOException | InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "netty";
+        }
+    };
+
     @Parameters(name = "{index}: service={0}, server={1}, client={2}, port={3}, protocol={4}, name={5}")
     public static Collection<Object[]> data() {
         List<List<Object>> parameterValues = new ArrayList<>();
         parameterValues.add(Arrays.asList(_syncServiceFactory, _asyncServiceFactory));
         parameterValues.add(Arrays.asList(_syncServerFactory, _asyncServerFactory, _nettyServerFactory));
-        parameterValues.add(Arrays.asList(_syncClientFactory, _asyncClientFactory));
+        parameterValues.add(Arrays.asList(_syncClientFactory, _asyncClientFactory, _nettyClientFactory));
         parameterValues.add(Arrays.asList(9999, 9998));
         parameterValues.add(new ArrayList<>(DataProtocols.ALL.values()));
         parameterValues.add(Arrays.asList("World", "World2", Util.multiply("World", 128)));
@@ -154,7 +171,7 @@ public class RpcTest {
         List<List<Object>> parameterValues = new ArrayList<>();
         parameterValues.add(Arrays.asList(_syncServiceFactory));
         parameterValues.add(Arrays.asList(_nettyServerFactory));
-        parameterValues.add(Arrays.asList(_syncClientFactory));
+        parameterValues.add(Arrays.asList(_nettyClientFactory));
         parameterValues.add(Arrays.asList(9999));
         parameterValues.add(Arrays.asList(DataProtocols.V0));
         parameterValues.add(Arrays.asList("World"));
