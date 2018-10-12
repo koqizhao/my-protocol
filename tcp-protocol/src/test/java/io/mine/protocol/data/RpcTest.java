@@ -28,6 +28,7 @@ import io.mine.protocol.api.sample.SampleResponse;
 import io.mine.protocol.api.sample.SampleService;
 import io.mine.protocol.async.AsyncClient;
 import io.mine.protocol.async.AsyncServer;
+import io.mine.protocol.async.NettyServer;
 import io.mine.protocol.client.Client;
 import io.mine.protocol.server.Server;
 import io.mine.protocol.sync.SyncClient;
@@ -77,6 +78,7 @@ public class RpcTest {
             return "sync";
         }
     };
+
     private static BiFunction<InetSocketAddress, Service<SampleRequest, SampleResponse>, Server<SampleRequest, SampleResponse>> _asyncServerFactory = new BiFunction<InetSocketAddress, Service<SampleRequest, SampleResponse>, Server<SampleRequest, SampleResponse>>() {
         @Override
         public Server<SampleRequest, SampleResponse> apply(InetSocketAddress t,
@@ -87,6 +89,19 @@ public class RpcTest {
         @Override
         public String toString() {
             return "async";
+        }
+    };
+
+    private static BiFunction<InetSocketAddress, Service<SampleRequest, SampleResponse>, Server<SampleRequest, SampleResponse>> _nettyServerFactory = new BiFunction<InetSocketAddress, Service<SampleRequest, SampleResponse>, Server<SampleRequest, SampleResponse>>() {
+        @Override
+        public Server<SampleRequest, SampleResponse> apply(InetSocketAddress t,
+                Service<SampleRequest, SampleResponse> u) {
+            return new NettyServer<>(t, u);
+        }
+
+        @Override
+        public String toString() {
+            return "netty";
         }
     };
 
@@ -126,11 +141,23 @@ public class RpcTest {
     public static Collection<Object[]> data() {
         List<List<Object>> parameterValues = new ArrayList<>();
         parameterValues.add(Arrays.asList(_syncServiceFactory, _asyncServiceFactory));
-        parameterValues.add(Arrays.asList(_syncServerFactory, _asyncServerFactory));
+        parameterValues.add(Arrays.asList(_syncServerFactory, _asyncServerFactory, _nettyServerFactory));
         parameterValues.add(Arrays.asList(_syncClientFactory, _asyncClientFactory));
         parameterValues.add(Arrays.asList(9999, 9998));
         parameterValues.add(new ArrayList<>(DataProtocols.ALL.values()));
         parameterValues.add(Arrays.asList("World", "World2", Util.multiply("World", 128)));
+        return Util.generateParametersCombination(parameterValues);
+    }
+
+    //@Parameters(name = "{index}: service={0}, server={1}, client={2}, port={3}, protocol={4}, name={5}")
+    public static Collection<Object[]> simpleData() {
+        List<List<Object>> parameterValues = new ArrayList<>();
+        parameterValues.add(Arrays.asList(_syncServiceFactory));
+        parameterValues.add(Arrays.asList(_nettyServerFactory));
+        parameterValues.add(Arrays.asList(_syncClientFactory));
+        parameterValues.add(Arrays.asList(9999));
+        parameterValues.add(Arrays.asList(DataProtocols.V0));
+        parameterValues.add(Arrays.asList("World"));
         return Util.generateParametersCombination(parameterValues);
     }
 
@@ -166,6 +193,7 @@ public class RpcTest {
             _server = serverFactory.apply(serverAddress, serviceFactory.get());
             try {
                 _server.start();
+            } catch (InterruptedException e) {
             } catch (IOException e) {
                 e.printStackTrace();
             }

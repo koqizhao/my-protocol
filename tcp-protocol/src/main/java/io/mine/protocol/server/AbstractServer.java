@@ -63,7 +63,7 @@ public abstract class AbstractServer<Req, Res> implements Server<Req, Res> {
     }
 
     @Override
-    public void start() throws IOException {
+    public void start() throws IOException, InterruptedException {
         if (!_started.compareAndSet(false, true))
             return;
 
@@ -71,21 +71,23 @@ public abstract class AbstractServer<Req, Res> implements Server<Req, Res> {
     }
 
     @Override
-    public void stop() throws IOException {
+    public void stop() throws IOException, InterruptedException {
         if (!_started.compareAndSet(true, false))
             return;
 
         doStop();
     }
 
-    protected abstract void doStart() throws IOException;
+    protected abstract void doStart() throws IOException, InterruptedException;
 
-    protected abstract void doStop() throws IOException;
+    protected abstract void doStop() throws IOException, InterruptedException;
 
     @Override
     public void close() throws IOException {
         try {
             stop();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         } finally {
             _workerPool.close();
         }

@@ -19,8 +19,8 @@ public interface Server<Req, Res> extends Closeable {
 
     boolean isStarted();
 
-    void start() throws IOException;
+    void start() throws IOException, InterruptedException;
 
-    void stop() throws IOException;
+    void stop() throws IOException, InterruptedException;
 
 }

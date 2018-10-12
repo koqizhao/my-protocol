@@ -31,7 +31,7 @@ public class SyncClient<Req, Res> extends AbstractClient<Req, Res> {
         _socket = new Socket();
         _socket.setTcpNoDelay(true);
         _socket.setKeepAlive(false);
-        _socket.setSoTimeout(10 * 1000);
+        _socket.setSoTimeout(30 * 1000);
         _socket.setSendBufferSize(32 * 1024);
         _socket.setReceiveBufferSize(32 * 1024);
         _socket.connect(getServerAddress(), 10 * 1000);
