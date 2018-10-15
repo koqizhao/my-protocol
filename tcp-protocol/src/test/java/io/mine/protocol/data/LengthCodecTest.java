@@ -21,4 +21,17 @@ public class LengthCodecTest {
         Assert.assertEquals(length, length2);
     }
 
+    @Test
+    public void byteConvertTest() {
+        int data = 255;
+        System.out.println(data);
+        System.out.println(Integer.toBinaryString(data));
+        System.out.println();
+
+        int bytePart = (byte) 255;
+        System.out.println(bytePart);
+        System.out.println(Integer.toBinaryString(bytePart));
+        System.out.println();
+    }
+
 }
